@@ -1,0 +1,36 @@
+# Hospital General Information
+general:
+  - "What are the visiting hours at Nawaloka Hospital?"
+  - "What are the opening hours of Nawaloka Hospital?"
+  - "Where is Nawaloka Hospital located?"
+  - "What is the address of Nawaloka Hospital?"
+  - "How do I contact Nawaloka Hospital?"
+  - "What is the phone number of Nawaloka Hospital?"
+
+# Services & Departments
+services:
+  - "What services does Nawaloka Hospital provide?"
+  - "What are the cardiology services at Nawaloka?"
+  - "Does Nawaloka have an emergency department?"
+  - "What health check packages are available?"
+  - "Does Nawaloka offer laboratory services?"
+  - "What radiology services are available?"
+
+# Appointments & Admissions
+appointments:
+  - "How do I book an appointment at Nawaloka?"
+  - "How do I schedule a consultation?"
+  - "What is the admission process?"
+  - "Can I book online?"
+
+# Insurance & Payments
+payments:
+  - "What insurance does Nawaloka accept?"
+  - "What are the payment options?"
+  - "Does Nawaloka accept credit cards?"
+
+# International Patients
+international:
+  - "Does Nawaloka treat international patients?"
+  - "What services are available for foreign patients?"
+  - "Is there interpreter service available?"
