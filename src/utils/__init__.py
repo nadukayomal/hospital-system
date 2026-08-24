@@ -2,7 +2,8 @@ from .config import (
     # Core loaders
     load_config,
     load_models,
-
+    load_api_keys,
+    
     # Config.yaml getters
     get_provider,
     get_llm,
@@ -28,6 +29,7 @@ __all__ = [
     # Core loaders
     "load_config",
     "load_models",
+    "load_api_keys,"
 
     # Config.yaml getters
     "get_provider",
