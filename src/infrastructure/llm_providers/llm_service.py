@@ -14,9 +14,6 @@ load_dotenv()
 # Import configuration constants and helper functions from utils.
 from utils import *
 
-API_KEY = os.getenv("OPENROUTER_API_KEY")
-
-
 def get_chat_llm(
                 model: str,
                 provider: str,
