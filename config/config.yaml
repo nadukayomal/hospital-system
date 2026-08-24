@@ -1,0 +1,80 @@
+
+# Provider Settings
+provider:
+  default: openrouter          # "openrouter" or "openai"
+  tier: general                # "general", "strong", or "reason"
+  openrouter_base_url: https://openrouter.ai/api/v1
+
+# LLM Defaults
+llm:
+  temperature: 0.0
+  max_tokens: 2000
+  streaming: false
+
+# Embedding Settings
+embedding:
+  tier: default                # "default" or "small"
+  batch_size: 100
+  show_progress: false
+
+# Chunking Configuration
+chunking:
+  fixed:
+    chunk_size: 800
+    chunk_overlap: 100
+
+  semantic:
+    max_chunk_size: 1000
+    min_chunk_size: 200
+
+  sliding:
+    window_size: 512
+    stride_size: 256
+
+  parent_child:
+    parent_size: 1200
+    child_size: 250
+    child_overlap: 50
+
+  late:
+    base_size: 1000
+    split_size: 300
+    context_window: 150
+
+# Retrieval Configuration
+retrieval:
+  top_k: 4
+  similarity_threshold: 0.7
+
+# CAG (Cache-Augmented Generation)
+cag:
+  cache_ttl: 86400             # seconds (legacy)
+  max_cache_size: 1000
+  similarity_threshold: 0.90
+  history_ttl_hours: 24
+
+# CRAG (Corrective RAG)
+crag:
+  confidence_threshold: 0.6
+  expanded_k: 8
+
+# Crawling Configuration
+crawling:
+  max_depth: 3
+  delay_seconds: 2.0
+  max_pages: 100
+
+# Paths (relative to project root)
+paths:
+  data_dir: data
+  vector_dir: data/vectorstore
+  markdown_dir: data/nawaloka_markdown
+  cache_dir: data/cag_cache
+  logs_dir: logs
+
+# Logging
+logging:
+  enabled: true
+  level: INFO                  # DEBUG | INFO | WARNING | ERROR
+  log_tokens: true
+  log_latency: true
