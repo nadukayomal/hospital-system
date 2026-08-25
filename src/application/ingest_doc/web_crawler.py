@@ -5,17 +5,17 @@ A polite BFS web crawler that renders JavaScript-heavy pages (React/SPA)
 using Playwright and extracts clean structured content.
 
 Main Features:
-- Full JS rendering with headless Chromium
-- BFS crawling with max depth control
-- URL filtering (domain, exclude patterns, media files)
-- Extracts: title, headings, clean markdown, internal links
-- Supports both async (crawl_async) and sync (crawl) usage
+    - Full JS rendering with headless Chromium
+    - BFS crawling with max depth control
+    - URL filtering (domain, exclude patterns, media files)
+    - Extracts: title, headings, clean markdown, internal links
+    - Supports both async (crawl_async) and sync (crawl) usage
 
 Core Methods:
-- should_crawl()     : URL filtering rules
-- extract_content()  : Clean content extraction
-- crawl_async()      : Main async crawler
-- crawl()            : Sync wrapper (Jupyter-friendly)
+    - should_crawl()     : URL filtering rules
+    - extract_content()  : Clean content extraction
+    - crawl_async()      : Main async crawler
+    - crawl()            : Sync wrapper (Jupyter-friendly)
 
 Usage:
     crawler = WebCrawler(base_url="https://example.com", max_depth=2)
