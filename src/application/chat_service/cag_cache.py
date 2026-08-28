@@ -302,3 +302,97 @@ class CAGCache:
             else:
                 entry['has_response'] = False
                 logger.debug(f"Loaded FAQ without response (pending): '{query}'")
+
+            # Store it
+            self.faq_cache[key] = entry
+            loaded += 1
+
+        # Persist + rebuild matrix only if something changed    
+        if loaded > 0:
+            self._save_faq_cache()
+            self._update_faq_embedding_matrix()
+            logger.info(f"Loaded {loaded} new FAQ(s). Total FAQs now: {len(self.faq_cache)}")
+        else:
+            logger.debug("No new FAQs were loaded (all were duplicates).")
+
+        return loaded
+
+    def get_pending_faqs(self) -> List[str]:
+        """Get FAQ queries that don't have responses yet."""
+    
+        pending = [
+                    entry['query'] 
+                    for entry in self.faq_cache.values()
+                    if not entry.get('has_response', False)
+                    ]
+
+        logger.debug(f"Found {len(pending)} pending FAQ(s) without responses")
+        return pending 
+
+    def update_faq_response(self, query: str, response: Dict[str, Any]) -> bool:
+        """
+        Update response for an FAQ entry.
+
+        Args:
+            query: The FAQ question
+            response: Dict with 'answer' and 'evidence_urls'
+
+        Returns:
+            True if updated, False if FAQ not found
+        """
+        logger.debug(f"Trying to update FAQ response for: '{query}'")
+
+        # Exact text match (fastest, for pending FAQs)
+        for key, entry in self.faq_cache.items():
+            if entry['query'].lower().strip() == query.lower().strip():
+                self.faq_cache[key]['answer'] = response['answer']
+                self.faq_cache[key]['evidence_urls'] = response.get('evidence_urls', [])
+                self.faq_cache[key]['has_response'] = True
+                self.faq_cache[key]['timestamp'] = time.time()
+
+                self._save_faq_cache()
+                self._update_faq_embedding_matrix()
+
+                logger.info(f"Updated FAQ (exact match): '{query}'")
+                return True
+
+        # Semantic match (in case the wording is slightly different)
+        query_embedding = self._embed_query(query)
+        match = self._find_similar(
+                                    query_embedding,
+                                    self._faq_embedding_matrix if self._faq_embedding_matrix is not None else None,
+                                    self._faq_cache_ids
+                                    )
+        
+        if match:
+            key = match[0]
+            self.faq_cache[key]['answer'] = response['answer']
+            self.faq_cache[key]['evidence_urls'] = response.get('evidence_urls', [])
+            self.faq_cache[key]['has_response'] = True
+            self.faq_cache[key]['timestamp'] = time.time()
+
+            self._save_faq_cache()
+            self._update_faq_embedding_matrix()
+
+            logger.info(f"Updated FAQ (semantic match, score={match[1]:.3f}): '{query}'")
+            return True
+
+        logger.warning(f"Could not find FAQ to update: '{query}'")
+        return False
+
+    def list_faqs(self) -> List[Dict[str, Any]]:
+        """List all FAQ entries with their status."""
+
+        result = [
+                    {
+                        'query': entry['query'],
+                        'has_response': entry.get('has_response', False),
+                        'timestamp': datetime.fromtimestamp(entry['timestamp']).isoformat()
+                    }
+                    for entry in self.faq_cache.values()
+                ]
+
+        logger.debug(f"Listing {len(result)} FAQ entries")
+        return result
+
+    """ Public Interface """
