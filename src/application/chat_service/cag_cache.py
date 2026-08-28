@@ -396,3 +396,185 @@ class CAGCache:
         return result
 
     """ Public Interface """
+
+    def get(self, query: str) -> Optional[Dict[str, Any]]:
+        """
+        Retrieve cached response using semantic similarity.
+        
+        Lookup order: FAQs first -> History second
+        
+        Args:
+            query: User query
+        
+        Returns:
+            Cached response with 'source', 'similarity_score', 'matched_query'
+            or None if no match
+        """
+        logger.info(f"Initiating cache lookup for query: '{query}'")
+        
+        # Clean expired dynamic history prior to lookup
+        self._cleanup_expired_history()
+        
+        # Embed user query vector
+        query_embedding = self._embed_query(query)
+        
+        # Search: FAQ Cache
+        faq_match = self._find_similar(
+                                        query_embedding,
+                                        self._faq_embedding_matrix,
+                                        self._faq_cache_ids
+                                        )
+        
+        if faq_match:
+            cache_id, similarity = faq_match
+            cached = self.faq_cache[cache_id].copy()
+            cached.pop('embedding', None)
+            cached['similarity_score'] = similarity
+            cached['matched_query'] = cached['query']
+            cached['source'] = 'faq'
+            logger.info(f"HIT [FAQ Tier] | Score: {similarity:.4f} | Matched: '{cached['matched_query']}'")
+
+            return cached
+            
+        # Search: History Cache
+        self._update_history_embedding_matrix()
+        
+        history_match = self._find_similar(
+                                            query_embedding,
+                                            self._history_embedding_matrix,
+                                            self._history_cache_ids
+                                            )
+        
+        if history_match:
+            cache_id, similarity = history_match
+            entry = self.history_cache[cache_id]
+            
+            # Verify TTL window
+            if time.time() - entry['timestamp'] < self.history_ttl_hours * 3600:
+                cached = entry.copy()
+                cached.pop('embedding', None)
+                cached['similarity_score'] = similarity
+                cached['matched_query'] = cached['query']
+                cached['source'] = 'history'
+                logger.info(f"HIT [History Tier] | Score: {similarity:.4f} | Matched: '{cached['matched_query']}'")
+                return cached
+            else:
+                logger.warning(f"Matched history entry '{cache_id}' expired during lookup check.")
+
+        logger.info(f"MISS [All Tiers] | No matching cached entries found for query: '{query}'")
+        return None
+
+    def set(self, query: str, response: Dict[str, Any]) -> None:
+        """
+        Cache a response to history.
+        
+        Args:
+            query: User query
+            response: Dict with 'answer' and optionally 'evidence_urls'
+        """
+
+        key = self._generate_key(query)
+        embedding = self._embed_query(query)
+        
+        self.history_cache[key] = {
+                                    'query': query,
+                                    'embedding': embedding,
+                                    'answer': response['answer'],
+                                    'evidence_urls': response.get('evidence_urls', []),
+                                    'timestamp': time.time(),
+                                    'is_faq': False
+                                    }
+        logger.info(f"Cached new query to history. Generated key: '{key}'")
+        
+        # FIFO Eviction Check
+        if len(self.history_cache) > self.max_cache_size:
+            oldest_key = min(
+                self.history_cache.keys(),
+                key=lambda k: self.history_cache[k]['timestamp']
+            )
+            del self.history_cache[oldest_key]
+            logger.info(f"Cache limit exceeded ({self.max_cache_size}). Evicted oldest key: '{oldest_key}'")
+            
+        self._update_history_embedding_matrix()
+        self._save_history_cache()
+
+    def clear(self, clear_faqs: bool = False) -> None:
+        """
+        Clear cache.
+        
+        Args:
+            clear_faqs: If True, also clear FAQ cache (default False)
+        """
+        history_count = len(self.history_cache)
+        self.history_cache = {}
+        self._history_embedding_matrix = None
+        self._history_cache_ids = []
+        self._save_history_cache()
+        logger.info(f"Cleared {history_count} dynamic history entries.")
+        
+        if clear_faqs:
+            faq_count = len(self.faq_cache)
+            self.faq_cache = {}
+            self._faq_embedding_matrix = None
+            self._faq_cache_ids = []
+            self._save_faq_cache()
+            logger.warning(f"Cleared {faq_count} static FAQ entries from cache!")
+
+    def stats(self) -> Dict[str, Any]:
+        """
+        Get cache performance and storage metrics.
+        """
+
+        faq_size = self.faq_cache_file.stat().st_size if self.faq_cache_file.exists() else 0
+        history_size = self.history_cache_file.stat().st_size if self.history_cache_file.exists() else 0
+        
+        faqs_ready = sum(1 for e in self.faq_cache.values() if e.get('has_response'))
+        faqs_pending = len(self.faq_cache) - faqs_ready
+        
+        self._cleanup_expired_history()
+        
+        stat_data = {
+                        'total_cached': len(self.faq_cache) + len(self.history_cache),
+                        'faq_count': len(self.faq_cache),
+                        'faq_ready': faqs_ready,
+                        'faq_pending': faqs_pending,
+                        'history_count': len(self.history_cache),
+                        'history_ttl_hours': self.history_ttl_hours,
+                        'similarity_threshold': self.similarity_threshold,
+                        'cache_size_kb': (faq_size + history_size) / 1024
+                        }
+        
+        logger.debug(f"Generated cache statistics: {stat_data}")
+        return stat_data
+
+    def get_history_queries(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """
+        Get recent queries from history (within TTL).
+        
+        Args:
+            limit: Maximum number to return
+        
+        Returns:
+            List of query info sorted by recency
+        """
+
+        self._cleanup_expired_history()
+        
+        entries = [
+            {
+                'query': entry['query'],
+                'timestamp': datetime.fromtimestamp(entry['timestamp']).isoformat(),
+                'age_hours': (time.time() - entry['timestamp']) / 3600
+            }
+            for entry in self.history_cache.values()
+        ]
+        
+        entries.sort(key=lambda x: x['age_hours'])
+        logger.debug(f"Retrieved {len(entries[:limit])} history query items.")
+        return entries[:limit]
+
+    def __len__(self) -> int:
+        return len(self.faq_cache) + len(self.history_cache)
+
+    def __contains__(self, query: str) -> bool:
+        return self.get(query) is not None
