@@ -1,9 +1,9 @@
-from .config import (
+from .config_utils import (
     # Core loaders
     load_config,
     load_models,
     load_api_keys,
-    
+
     # Config.yaml getters
     get_provider,
     get_llm,
@@ -25,11 +25,20 @@ from .config import (
     get_deepseek,
 )
 
+from .format_utils import (
+    format_docs,
+    calculate_confidence,
+    extract_citations,
+    truncate_text,
+)
+
+from . token_utils import count_tokens
+
 __all__ = [
     # Core loaders
     "load_config",
     "load_models",
-    "load_api_keys,"
+    "load_api_keys",
 
     # Config.yaml getters
     "get_provider",
@@ -50,4 +59,13 @@ __all__ = [
     "get_google",
     "get_groq",
     "get_deepseek",
+    
+    # Format utils
+    "format_docs",
+    "calculate_confidence",
+    "extract_citations",
+    "truncate_text",
+
+    # Token utils
+    "count_tokens",
 ]
