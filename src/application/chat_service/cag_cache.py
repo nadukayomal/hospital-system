@@ -54,7 +54,8 @@ class CAGCache:
                     history_ttl_hours: float=24.0
                     ):
         
-        self.cache_dir = cache_dir
+        self.cache_dir = Path(cache_dir)
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.embedder = embedder
         self.similarity_threshold = similarity_threshold
         self.max_cache_size = max_cache_size

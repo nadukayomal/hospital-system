@@ -27,6 +27,7 @@ import sys
 import logging
 import re
 import asyncio
+import concurrent.futures
 
 from typing import List, Dict, Any, Set
 from collections import deque
@@ -225,11 +226,28 @@ class WebCrawler:
         async with async_playwright() as p:
             logger.info(f"Launching browser......")
 
-            browser = await p.chromium.launch(headless=True)
+            browser = None
+            launch_errors = []
+            for channel in [None, "chrome", "msedge"]:
+                try:
+                    kwargs = {"headless": True}
+                    if channel:
+                        kwargs["channel"] = channel
+                    browser = await p.chromium.launch(**kwargs)
+                    logger.info(f"Browser launched successfully (channel={channel or 'default'})")
+                    break
+                except Exception as e:
+                    launch_errors.append(f"channel={channel}: {e}")
+
+            if browser is None:
+                raise RuntimeError(
+                    "Failed to launch browser with Playwright. Attempted default Chromium, Chrome, and Edge.\n"
+                    + "\n".join(launch_errors)
+                )
+
             page = await browser.new_page()
             # 30 seconds default timeout
             page.set_default_timeout(30000)
-            logger.info("Browser launched successfully")
 
             while queue:
                 url, depth = queue.popleft()
@@ -312,19 +330,45 @@ class WebCrawler:
 
         return self.documents
 
-def crawl(
-            self, 
-            start_urls: List[str], 
-            request_delay: float = 2.0
-            ) -> List[Dict[str, Any]]:
-    """
-    Synchronous wrapper for async crawl (for Jupyter compatibility).
-    
-    Args:
-        start_urls: List of seed URLs
-        request_delay: Seconds between requests
-    
-    Returns:
-        List of crawled documents
-    """
-    return asyncio.run(self.crawl_async(start_urls, request_delay))
+    def crawl(
+        self, 
+        start_urls: List[str], 
+        request_delay: float = 2.0
+    ) -> List[Dict[str, Any]]:
+        """
+        Synchronous wrapper for async crawl (compatible with Jupyter notebooks and Windows).
+        
+        Args:
+            start_urls: List of seed URLs
+            request_delay: Seconds between requests
+        
+        Returns:
+            List of crawled documents
+        """
+        def _run_in_new_loop():
+            if sys.platform == "win32":
+                loop = asyncio.ProactorEventLoop()
+            else:
+                loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                return loop.run_until_complete(self.crawl_async(start_urls, request_delay))
+            finally:
+                loop.close()
+
+        # If already running inside an active event loop (e.g. Jupyter notebook)
+        try:
+            running_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            running_loop = None
+
+        if running_loop is not None and running_loop.is_running():
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(_run_in_new_loop)
+                return future.result()
+        else:
+            return _run_in_new_loop()
+
+
+# Alias for convenience and notebook compatibility
+NawalokaWebCrawler = WebCrawler

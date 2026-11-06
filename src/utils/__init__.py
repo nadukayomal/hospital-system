@@ -23,6 +23,18 @@ from .config_utils import (
     get_google,
     get_groq,
     get_deepseek,
+    PROJECT_ROOT,
+    CRAWL_OUT_DIR,
+    VECTOR_DIR,
+    CACHE_DIR,
+    PROVIDER,
+    TOP_K_RESULTS,
+    CRAG_EXPANDED_K,
+    CHAT_MODEL,
+    EMBEDDING_MODEL,
+    KNOWN_FAQS,
+    load_faqs,
+    get_known_faqs,
 )
 
 from .format_utils import (
@@ -68,4 +80,18 @@ __all__ = [
 
     # Token utils
     "count_tokens",
+
+    # Paths & Model Constants
+    "PROJECT_ROOT",
+    "CRAWL_OUT_DIR",
+    "VECTOR_DIR",
+    "CACHE_DIR",
+    "PROVIDER",
+    "TOP_K_RESULTS",
+    "CRAG_EXPANDED_K",
+    "CHAT_MODEL",
+    "EMBEDDING_MODEL",
+    "KNOWN_FAQS",
+    "load_faqs",
+    "get_known_faqs",
 ]

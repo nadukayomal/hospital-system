@@ -16,12 +16,12 @@ logger = logging.getLogger(__name__)
 
 
 def get_default_embeddings(
-                            model: str, 
-                            provider: str, 
-                            batch_size: int = None, 
-                            tier: str = None, 
-                            show_progress: bool = None
-                            ) -> OpenAIEmbeddings:
+    model: Optional[str] = None, 
+    provider: Optional[str] = None, 
+    batch_size: Optional[int] = None, 
+    tier: Optional[str] = None, 
+    show_progress: Optional[bool] = None
+) -> OpenAIEmbeddings:
     """
     Factory function to create an embedding model instance.
     
@@ -29,8 +29,8 @@ def get_default_embeddings(
     or direct OpenAI access if configured.
     
     Args:
-        model: Model name (e.g., "text-embedding-3-large"). If None, uses config.
-        provider: Override provider ("openrouter", "openai")
+        model: Model name (e.g., "openai/text-embedding-3-small"). If None, resolved from config.
+        provider: Provider name ("openrouter", "openai"). If None, resolved from config or env.
         tier: Embedding tier ("default", "small")
         batch_size: Number of texts to embed in parallel
         show_progress: Display progress bar for large batch operations
@@ -38,36 +38,58 @@ def get_default_embeddings(
     Returns:
         OpenAIEmbeddings: An embedding model instance ready for vectorization
     """
-    if provider.lower() == "openrouter":
+    # Resolve provider
+    if not provider:
+        config_provider = get_provider().get("default", "openrouter")
+        openrouter_key = os.getenv("OPENROUTER_API_KEY")
+        openai_key = os.getenv("OPENAI_API_KEY")
+        if openrouter_key:
+            provider = "openrouter"
+        elif openai_key:
+            provider = "openai"
+        else:
+            provider = config_provider
 
-        api_key = load_api_keys(provider = "openai")
-        open_router_url = "https://openrouter.ai/api/v1"
+    provider = provider.lower()
+    tier = tier or get_embedding().get("tier", "default")
+    batch_size = batch_size or get_embedding().get("batch_size", 100)
 
-        logger.info(f"Openrouter support embedding")
+    if provider in ["local", "huggingface", "sentence-transformers"]:
+        from langchain_community.embeddings import HuggingFaceEmbeddings
+        model_name = model or "all-MiniLM-L6-v2"
+        logger.info(f"Using local HuggingFace embeddings: model={model_name}")
+        return HuggingFaceEmbeddings(model_name=model_name)
 
-        try:
-            return OpenAIEmbeddings(
-                        model=model,
-                        openai_api_key=api_key,
-                        openai_api_base =open_router_url,
-                        show_progress_bar=show_progress
-                    )
-        except Exception as e:
-            logger.error(f"Occur error returning default embedding openrouter: {e}")
+    if provider == "openrouter":
+        api_key = load_api_keys(provider="openrouter") or os.getenv("OPENROUTER_API_KEY")
+        open_router_url = get_provider().get("openrouter_base_url", "https://openrouter.ai/api/v1")
+        if not model:
+            model = get_openrouter().get("embedding", {}).get(tier, "openai/text-embedding-3-small")
+
+        logger.info(f"Using OpenRouter embeddings: model={model}")
+
+        return OpenAIEmbeddings(
+            model=model,
+            openai_api_key=api_key,
+            openai_api_base=open_router_url,
+            show_progress_bar=show_progress or False,
+            check_embedding_ctx_length=False,
+            chunk_size=batch_size,
+        )
 
     else:
-        logger.info(f"Direct openai embedding")
+        api_key = load_api_keys(provider="openai") or os.getenv("OPENAI_API_KEY")
+        if not model:
+            model = get_openai().get("embedding", {}).get(tier, "text-embedding-3-small")
 
-        api_key = load_api_keys(provider = "openai")
+        logger.info(f"Using direct OpenAI embeddings: model={model}")
 
-        try:
-            return OpenAIEmbeddings(
-                        model=model,
-                        openai_api_key=api_key,
-                        show_progress_bar=show_progress
-                    )
-        except Exception as e:
-            logger.error(f"Occur error returnning direct openai embedding : {e}")
+        return OpenAIEmbeddings(
+            model=model,
+            openai_api_key=api_key,
+            show_progress_bar=show_progress or False,
+            chunk_size=batch_size,
+        )
 
 
 

@@ -15,32 +15,46 @@ load_dotenv()
 from utils import *
 
 def get_chat_llm(
-                model: str,
-                provider: str,
-                temperature: float = 0.7,
-                max_tokens: int = 500,
-                streaming: bool = False,
-                tier: str = None,
-                )-> ChatOpenAI:
+    model: Optional[str] = None,
+    provider: Optional[str] = None,
+    temperature: float = 0.0,
+    max_tokens: int = 500,
+    streaming: bool = False,
+    tier: Optional[str] = None,
+) -> ChatOpenAI:
     """
     Initialize and return a ChatOpenAI model instance for OpenAI or OpenRouter.
 
     Args:
-        model (str): Name of the language model to instantiate.
-        provider (str): Service provider name ("openai" or "openrouter").
-        tier (str): Model performance/tier classification.
-        temperature (float, optional): Sampling temperature for output randomness between 0.0 and 2.0. Defaults to 0.7.
-        max_tokens (int, optional): Maximum number of tokens to generate in the completion. Defaults to 500.
-        streaming (bool, optional): Whether to stream responses token-by-token. Defaults to False.
+        model (str, optional): Name of the language model to instantiate.
+        provider (str, optional): Service provider name ("openai" or "openrouter").
+        temperature (float, optional): Sampling temperature. Defaults to 0.0.
+        max_tokens (int, optional): Maximum tokens to generate. Defaults to 500.
+        streaming (bool, optional): Whether to stream responses. Defaults to False.
+        tier (str, optional): Model performance/tier classification ("general", "strong", "reason").
 
     Returns:
         ChatOpenAI: Configured LangChain ChatOpenAI object.
     """
-    
-    api_key = os.getenv("OPENAI_API_KEY")
+    if not provider:
+        config_provider = get_provider().get("default", "openrouter")
+        openrouter_key = os.getenv("OPENROUTER_API_KEY")
+        openai_key = os.getenv("OPENAI_API_KEY")
+        if openrouter_key:
+            provider = "openrouter"
+        elif openai_key:
+            provider = "openai"
+        else:
+            provider = config_provider
+
+    provider = provider.lower()
+    tier = tier or get_provider().get("tier", "general")
 
     if provider == "openrouter":
-        open_router_url = "https://openrouter.ai/api/v1"
+        api_key = load_api_keys(provider="openrouter") or os.getenv("OPENROUTER_API_KEY")
+        open_router_url = get_provider().get("openrouter_base_url", "https://openrouter.ai/api/v1")
+        if not model:
+            model = get_openrouter().get("chat", {}).get(tier, "openai/gpt-4o-mini")
 
         return ChatOpenAI(
             model=model,
@@ -51,6 +65,10 @@ def get_chat_llm(
             openai_api_base=open_router_url
         )
     else:
+        api_key = load_api_keys(provider="openai") or os.getenv("OPENAI_API_KEY")
+        if not model:
+            model = get_openai().get("chat", {}).get(tier, "gpt-4o-mini")
+
         return ChatOpenAI(
             model=model,
             temperature=temperature,
