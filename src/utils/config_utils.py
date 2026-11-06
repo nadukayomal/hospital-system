@@ -15,17 +15,18 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# Current file → go up two levels → enter "config"
-BASE_DIR = Path(__file__).resolve().parent.parent.parent / "config"
+# Current file → go up three levels to project root
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+BASE_DIR = PROJECT_ROOT / "config"
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
-CONFIG_FILE = BASE_DIR/"config.yaml"
-MODEL_FILE = BASE_DIR/"model.yaml"
+CONFIG_FILE = BASE_DIR / "config.yaml"
+MODEL_FILE = BASE_DIR / "model.yaml"
 
 
 def load_yaml(file_path: str) -> dict:
-    logger.error(f"Started loading {file_path}")
+    logger.debug(f"Loading {file_path}")
     try:
         with open(file_path, "r") as f:
             data = yaml.safe_load(f)
@@ -37,11 +38,37 @@ def load_yaml(file_path: str) -> dict:
         return {}
 
 
+FAQ_FILE = BASE_DIR / "faq.yaml"
+
+
 def load_config() -> dict:
     return load_yaml(CONFIG_FILE)
 
 def load_models() -> dict:
     return load_yaml(MODEL_FILE)
+
+def load_faqs() -> dict:
+    return load_yaml(FAQ_FILE)
+
+def get_known_faqs() -> list:
+    faqs_dict = load_faqs()
+    all_faqs = []
+    for cat, q_list in faqs_dict.items():
+        if isinstance(q_list, list):
+            all_faqs.extend(q_list)
+    return all_faqs
+
+# Common directory paths and configurations
+CRAWL_OUT_DIR = PROJECT_ROOT / "data"
+VECTOR_DIR = PROJECT_ROOT / "data" / "vectorstore"
+CACHE_DIR = PROJECT_ROOT / "data" / "cag_cache"
+PROVIDER = load_config().get("provider", {}).get("default", "openrouter")
+TOP_K_RESULTS = load_config().get("retrieval", {}).get("top_k", 4)
+CRAG_EXPANDED_K = load_config().get("crag", {}).get("expanded_k", 8)
+CHAT_MODEL = load_models().get("openrouter", {}).get("chat", {}).get("general", "openai/gpt-4o-mini")
+EMBEDDING_MODEL = load_models().get("openrouter", {}).get("embedding", {}).get("default", "openai/text-embedding-3-small")
+KNOWN_FAQS = get_known_faqs()
+
 
 def load_api_keys(provider):
     """

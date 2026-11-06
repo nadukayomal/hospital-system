@@ -27,7 +27,7 @@ def semantic_chunk(documents: List) -> List:
     """
     Split document by markdown heading structure.
     """
-    logger.info(f"Starting semantic chunk with : {documents}")
+    logger.info(f"Starting semantic chunk with {len(documents)} documents")
 
     # Initialize configs
     semantic_min_chunk_size = get_chunking().get("semantic", {}).get("min_chunk_size", {})
@@ -143,7 +143,7 @@ def fixed_chunk(documents: List) -> List:
     """
     Split document into fixed chunk with chunk overlap
     """
-    logger.info(f"Starting Fixed chunk with : {documents}")
+    logger.info(f"Starting Fixed chunk with {len(documents)} documents")
 
     # Initialize configs
     chunk_size = get_chunking().get("fixed", {}).get("chunk_size", {})
@@ -202,7 +202,7 @@ def sliding_chunk(documents: List) -> List:
     sliding_stride_size = get_chunking().get("sliding", {}).get("stride_size", {})
 
     chunks = []
-    chunk_idx = []
+    chunk_idx = 0
 
     window_size = sliding_window_size * 4
     stride_size = sliding_stride_size * 4
